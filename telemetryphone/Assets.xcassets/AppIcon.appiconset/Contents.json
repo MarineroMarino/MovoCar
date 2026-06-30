@@ -1,28 +1,7 @@
 {
   "images" : [
     {
-      "idiom" : "universal",
-      "platform" : "ios",
-      "size" : "1024x1024"
-    },
-    {
-      "appearances" : [
-        {
-          "appearance" : "luminosity",
-          "value" : "dark"
-        }
-      ],
-      "idiom" : "universal",
-      "platform" : "ios",
-      "size" : "1024x1024"
-    },
-    {
-      "appearances" : [
-        {
-          "appearance" : "luminosity",
-          "value" : "tinted"
-        }
-      ],
+      "filename" : "Logo MovoCar con fondo azul sólido uniforme sin degradado, icono de pin de ubicación en verde menta claro, texto _Movo_ en blanco y _Car_ en verde menta claro, diseño limpio y minimalista.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
