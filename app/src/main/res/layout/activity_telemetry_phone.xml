@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/backgrounf_gemini"
+    tools:context=".TelemetryActivity">
+
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnInstrucciones"
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            android:layout_marginHorizontal="10dp"
+            android:layout_marginTop="10dp"
+            android:text="Instrucciones"
+            android:textColor="#2B75E2"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            app:backgroundTint="#FFFFFF"
+            app:icon="@android:drawable/ic_menu_info_details"
+            app:iconSize="50sp"
+            app:cornerRadius="16dp"
+            app:iconPadding="8dp"
+            app:elevation="14dp"
+            app:pressedTranslationZ="16dp"
+            app:iconTint="#2B75E2"
+
+            />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnEncuesta"
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            android:layout_marginHorizontal="10dp"
+            android:layout_marginTop="10dp"
+            android:text="Encuesta"
+            android:textColor="#2B75E2"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            app:backgroundTint="#FFFFFF"
+            app:cornerRadius="16dp"
+            app:icon="@android:drawable/ic_menu_edit"
+            app:iconSize="50sp"
+            app:elevation="14dp"
+            app:pressedTranslationZ="16dp"
+            app:iconTint="#2B75E2"/>
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnPlay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:enabled="false"
+            android:src="@android:drawable/ic_media_play"
+            app:backgroundTint="#00C318"
+            app:fabCustomSize="100dp"
+            app:maxImageSize="60dp"
+            app:tint="#FFFFFF" />
+    </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="#FFFFFF"
+    android:orientation="vertical"
+    android:padding="36dp">
+
+
+    <TextView
+        android:id="@+id/tvPopupTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:gravity="center"
+        android:text="¿Quiere dejarnos alguna opinión?\nMantenga pulsado el botón"
+
+        android:textColor="#1E293B"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvTimer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="8dp"
+        android:text="Máximo 60 segundos"
+        android:textColor="#64748B"
+        android:textSize="14sp" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/btnIniciarGrabacion"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:layout_gravity="center_horizontal"
+
+        android:src="@android:drawable/ic_btn_speak_now"
+        app:fabCustomSize="150dp"
+        app:maxImageSize="100dp"
+
+        app:backgroundTint="#2B75E2"
+        app:tint="#FFFFFF"
+        app:elevation="14dp"
+        app:pressedTranslationZ="16dp"
+
+        app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.MaterialComponents.FloatingActionButton"
+        />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCerrarPopup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="20dp"
+        android:text="Salir"
+        android:textColor="#656565"
+        android:textSize="26sp"
+        app:backgroundTint="#FFFFFF"
+        app:icon="@android:drawable/ic_menu_close_clear_cancel"
+        app:iconSize="52dp"
+        app:iconTint="#000000"
+        />
+
+</LinearLayout>
