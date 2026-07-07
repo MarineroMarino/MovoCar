@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct PreparationView: View {
-    let pin: String // Recibimos el PIN de la vista anterior
+    let pin = "0000" // Recibimos el PIN de la vista anterior
     @AppStorage("encuesta_completada_num") private var encuestasCompletadas: String = ""
     @State private var showInstructions = false
     @State private var showSurvey = false
@@ -23,22 +23,23 @@ struct PreparationView: View {
     }
     
     var body: some View {
-        ZStack{
-            Image("Background_Gemini")
-                .resizable() // Permite que la imagen cambie de tamaño
-                .scaledToFill() // Hace que llene todo el espacio sin deformarse
-                .ignoresSafeArea()
-            
+        NavigationStack {
+            ZStack{
+                Image("Background_Gemini")
+                    .resizable() // Permite que la imagen cambie de tamaño
+                    .scaledToFill() // Hace que llene todo el espacio sin deformarse
+                    .ignoresSafeArea()
+                
                 VStack(spacing: 40) {
                     
                     Button(action: { showInstructions = true }) {
-                            Label("Instrucciones", systemImage: "doc.text.magnifyingglass")
-                        }
+                        Label("Instrucciones", systemImage: "doc.text.magnifyingglass")
+                    }
                     .buttonStyle(LargeRectangularButtonStyle(color: .white))
                     
                     Button(action: { showSurvey = true }) {
-                            Label("Encuesta", systemImage: "clipboard.fill")
-                        }
+                        Label("Encuesta", systemImage: "clipboard.fill")
+                    }
                     .buttonStyle(LargeRectangularButtonStyle(color: .white))
                     .opacity(!isSurveyCompleted ? 1.0 : 0.5)
                     .disabled(isSurveyCompleted)
@@ -67,25 +68,16 @@ struct PreparationView: View {
                     GoogleFormWebView(pin:pin, onFormCompleted: {
                         encuestasCompletadas += "[\(pin)]"
                         showSurvey = false
-                    
+                        
                     })
                 }
                 .navigationDestination(isPresented: $navigateToCollection) {
                     DataCollectionView(pin: pin)
                 }
                 .navigationBarBackButtonHidden(true)
-                .toolbar {
-                            ToolbarItem(placement: .navigationBarLeading) {
-                                Button(action: {
-                                    dismiss() // Esto cierra la vista y vuelve a la del PIN
-                                }) {
-                                    HStack {
-                                        Image(systemName: "chevron.left")
-                                    }
-                                }
-                            }
-                        }
+                
             }
+        }
         }
     
 }
