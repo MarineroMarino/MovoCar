@@ -3,6 +3,7 @@ package com.example.telemetryphone
 import android.Manifest
 import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
@@ -88,6 +89,7 @@ class RecogidaDatosActivity : AppCompatActivity() {
     private var mediaRecorder: MediaRecorder? = null
     private var archivoAudioLocal: File? = null
     private var animacionRespiracion: ObjectAnimator? = null
+    private var avisoJob: Job? = null
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -111,15 +113,45 @@ class RecogidaDatosActivity : AppCompatActivity() {
         permissionLauncher.launch(runtimePermissionsToRequest())
 
         btnTelemetry.setOnClickListener {
+            avisoJob?.cancel() // Detenemos el temporizador de avisos al terminar
             detenerAnimacionRespiracion(btnTelemetry)
             stopCollectionAndUpload()
             mostrarPopupAudio()
-
-
         }
 
-
+        iniciarAvisosEmergentes()
     }
+
+    private fun iniciarAvisosEmergentes() {
+        avisoJob = lifecycleScope.launch {
+            while (true) {
+                delay(120_000) // 120,000 milisegundos = 2 minutos
+                mostrarAvisoEmergente()
+            }
+        }
+    }
+
+    private fun mostrarAvisoEmergente() {
+        val view = layoutInflater.inflate(R.layout.layout_popup_aviso, null)
+        val builder = AlertDialog.Builder(this)
+        
+        // Evitamos que el usuario lo pueda cerrar tocando fuera (para forzar a darle a Aceptar)
+        builder.setCancelable(false)
+        builder.setView(view)
+        
+        val dialog = builder.create()
+        
+        // Hacer que las esquinas del diseño sean visibles correctamente
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        
+        val btnAceptar = view.findViewById<MaterialButton>(R.id.btnAvisoAceptar)
+        btnAceptar.setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        dialog.show()
+    }
+
     private fun mostrarPopupAudio() {
         // 1. Instanciar el BottomSheetDialog
         val dialog = BottomSheetDialog(this)
