@@ -17,7 +17,11 @@ data class Telemetry(
     val timestamp: Long,
     val device: DeviceInfo,
     val location: LocationInfo? = null,
-    val sensors: SensorsInfo? = null
+    val sensors: SensorsInfo? = null,
+    val trafficDensity: String = "",
+    val trafficAverageSpeedKmh: String = "",
+    val speedLimitKmh: String = "",
+    val dgtEventType: String = ""
 )
 
 @SuppressLint("UnsafeOptInUsageError")
@@ -58,5 +62,6 @@ data class LocationInfo(
     val longitude: Double,
     val accuracyMeters: Float? = null,
     val altitudeMeters: Double? = null,
-    val speedMps: Float? = null
+    val speedMps: Float? = null,
+    val bearing: Float? = null
 )

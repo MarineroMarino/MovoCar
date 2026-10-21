@@ -3,7 +3,6 @@ package com.example.telemetryphone
 import android.Manifest
 import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
-import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
@@ -51,8 +50,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.IOException
+import java.net.URLEncoder
 import java.util.Locale
 import kotlin.coroutines.resume
 
@@ -82,6 +83,12 @@ class RecogidaDatosActivity : AppCompatActivity() {
 
     private var isCollecting = false
     private var collectionJob: Job? = null
+    private var trafficJob: Job? = null
+    
+    @Volatile private var latestTrafficDensity = ""
+    @Volatile private var latestTrafficAvgSpeed = ""
+    @Volatile private var latestSpeedLimit = ""
+
     private val collectedRecords = mutableListOf<Telemetry>()
     private var currentSessionId: String? = null
     private var grabacionTimer: CountDownTimer? = null
@@ -89,7 +96,6 @@ class RecogidaDatosActivity : AppCompatActivity() {
     private var mediaRecorder: MediaRecorder? = null
     private var archivoAudioLocal: File? = null
     private var animacionRespiracion: ObjectAnimator? = null
-    private var avisoJob: Job? = null
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -113,45 +119,15 @@ class RecogidaDatosActivity : AppCompatActivity() {
         permissionLauncher.launch(runtimePermissionsToRequest())
 
         btnTelemetry.setOnClickListener {
-            avisoJob?.cancel() // Detenemos el temporizador de avisos al terminar
             detenerAnimacionRespiracion(btnTelemetry)
             stopCollectionAndUpload()
             mostrarPopupAudio()
+
+
         }
 
-        iniciarAvisosEmergentes()
-    }
 
-    private fun iniciarAvisosEmergentes() {
-        avisoJob = lifecycleScope.launch {
-            while (true) {
-                delay(120_000) // 120,000 milisegundos = 2 minutos
-                mostrarAvisoEmergente()
-            }
-        }
     }
-
-    private fun mostrarAvisoEmergente() {
-        val view = layoutInflater.inflate(R.layout.layout_popup_aviso, null)
-        val builder = AlertDialog.Builder(this)
-        
-        // Evitamos que el usuario lo pueda cerrar tocando fuera (para forzar a darle a Aceptar)
-        builder.setCancelable(false)
-        builder.setView(view)
-        
-        val dialog = builder.create()
-        
-        // Hacer que las esquinas del diseño sean visibles correctamente
-        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-        
-        val btnAceptar = view.findViewById<MaterialButton>(R.id.btnAvisoAceptar)
-        btnAceptar.setOnClickListener {
-            dialog.dismiss()
-        }
-        
-        dialog.show()
-    }
-
     private fun mostrarPopupAudio() {
         // 1. Instanciar el BottomSheetDialog
         val dialog = BottomSheetDialog(this)
@@ -443,21 +419,131 @@ class RecogidaDatosActivity : AppCompatActivity() {
         return perms.toTypedArray()
     }
 
+    private suspend fun fetchTrafficData(lat: Double, lon: Double, tipo: String): Triple<String, String, String> = withContext(Dispatchers.IO) {
+        var density = "Desconocido"
+        var avgSpeed = ""
+        var speedLimit = ""
+
+        // TODO: Regístrate en https://developer.tomtom.com/ , crea una app gratis y pega aquí tu API Key
+        val tomtomApiKey = "4ge1Vx2TdXJv1blwityGdCRZjnRFgXFz"
+
+        // 1. OBTENER TRÁFICO EN TIEMPO REAL (TomTom API)
+        try {
+            if (tomtomApiKey != "4ge1Vx2TdXJv1blwityGdCRZjnRFgXFz") {
+                // Endpoint para "Traffic Flow" que nos da velocidad actual y libre
+                val tomTomUrl = "https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?point=$lat,$lon&key=$tomtomApiKey"
+                val requestTomTom = Request.Builder().url(tomTomUrl).build()
+                
+                httpClient.newCall(requestTomTom).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body?.string()
+                        if (body != null) {
+                            val json = JSONObject(body)
+                            if (json.has("flowSegmentData")) {
+                                val flowData = json.getJSONObject("flowSegmentData")
+                                val currentSpeed = flowData.optDouble("currentSpeed", -1.0)
+                                val freeFlowSpeed = flowData.optDouble("freeFlowSpeed", -1.0)
+                                
+                                if (currentSpeed != -1.0) {
+                                    avgSpeed = currentSpeed.toString()
+                                    // Calculamos densidad en base a la velocidad actual frente a la velocidad de vía libre
+                                    density = if (currentSpeed < (freeFlowSpeed * 0.75)) "Congestionado" else "Fluido"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("TrafficAPI", "Error al obtener tráfico de TomTom: ${e.message}")
+        }
+
+        // 2. OBTENER LÍMITE DE VELOCIDAD DE LA VÍA (OpenStreetMap - Overpass API)
+        try {
+            // Buscamos vías en un radio de 50 metros que tengan la etiqueta "maxspeed"
+            val query = "[out:json];way(around:50,$lat,$lon)[\"maxspeed\"];out tags;"
+            val overpassUrl = "https://overpass-api.de/api/interpreter?data=" + URLEncoder.encode(query, "UTF-8")
+            
+            val requestOsm = Request.Builder().url(overpassUrl).build()
+            
+            httpClient.newCall(requestOsm).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string()
+                    if (body != null) {
+                        val json = JSONObject(body)
+                        val elements = json.optJSONArray("elements")
+                        if (elements != null && elements.length() > 0) {
+                            // Cogemos la vía más cercana (el primer resultado del array)
+                            val firstElement = elements.getJSONObject(0)
+                            val tags = firstElement.optJSONObject("tags")
+                            if (tags != null && tags.has("maxspeed")) {
+                                speedLimit = tags.getString("maxspeed")
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("TrafficAPI", "Error al obtener límite de OpenStreetMap: ${e.message}")
+        }
+
+        // Fallback: Si no hay clave de TomTom o falla algo, ponemos valores simulados para no dejar el CSV vacío
+        if (avgSpeed.isEmpty()) {
+            density = if (tipo == "INICIO") "Fluido (Simulado)" else "Congestionado (Simulado)"
+            avgSpeed = if (tipo == "INICIO") "90.0" else "35.0"
+        }
+        if (speedLimit.isEmpty()) {
+            speedLimit = "120 (Simulado)" // Si OSM no tiene registrada la velocidad en esa calle exacta
+        }
+
+        return@withContext Triple(density, avgSpeed, speedLimit)
+    }
+
     private fun startCollectionIfValid() {
 
         currentSessionId = intent.getStringExtra("EXTRA_PIN")
         collectedRecords.clear()
         isCollecting = true
 
+        latestTrafficDensity = ""
+        latestTrafficAvgSpeed = ""
+        latestSpeedLimit = ""
 
-
+        // NUEVO: Job en segundo plano para recolectar tráfico de TomTom y OpenStreetMap cada 10s
+        trafficJob = lifecycleScope.launch {
+            var isFirst = true
+            while (isCollecting) {
+                val loc = readLocationSnapshot(this@RecogidaDatosActivity)
+                if (loc != null) {
+                    val tipo = if (isFirst) "INICIO" else "RUTA"
+                    isFirst = false
+                    
+                    val trafficData = fetchTrafficData(loc.latitude, loc.longitude, tipo)
+                    
+                    // Actualizamos las variables que el CSV cogerá
+                    latestTrafficDensity = trafficData.first
+                    latestTrafficAvgSpeed = trafficData.second
+                    latestSpeedLimit = trafficData.third
+                }
+                // Pausa de 10 segundos
+                delay(10000L)
+            }
+        }
 
         collectionJob = lifecycleScope.launch {
             while (isCollecting) {
-                val snapshot = collectTelemetrySnapshot(
+                val baseSnapshot = collectTelemetrySnapshot(
                     context = this@RecogidaDatosActivity,
                     grants = currentPermissionMap(),
                     sessionId = currentSessionId ?: ""
+                )
+
+                // Inyectamos continuamente los últimos datos de tráfico obtenidos en el CSV
+                val snapshot = baseSnapshot.copy(
+                    trafficDensity = latestTrafficDensity,
+                    trafficAverageSpeedKmh = latestTrafficAvgSpeed,
+                    speedLimitKmh = latestSpeedLimit,
+                    dgtEventType = "ACTUALIZADO_10S"
                 )
 
                 collectedRecords.add(snapshot)
@@ -471,6 +557,8 @@ class RecogidaDatosActivity : AppCompatActivity() {
     private fun stopCollectionAndUpload() {
         isCollecting = false
         collectionJob?.cancel()
+        trafficJob?.cancel() // Paramos el recolector de tráfico
+
         lifecycleScope.launch {
             val sessionId = currentSessionId
             if (sessionId.isNullOrBlank()) {
@@ -482,7 +570,24 @@ class RecogidaDatosActivity : AppCompatActivity() {
                 return@launch
             }
 
+            // --- NUEVO: RECOGER DATOS DE TRÁFICO AL FINAL ---
+            val lastRecord = collectedRecords.last()
+            val lastLoc = lastRecord.location
+            if (lastLoc != null) {
+                val trafficData = fetchTrafficData(lastLoc.latitude, lastLoc.longitude, "FIN")
+                val endDensity = trafficData.first
+                val endAvgSpeed = trafficData.second
+                val endLimit = trafficData.third
 
+                // Actualizamos el último registro del batch para incluir el cierre del tráfico
+                collectedRecords[collectedRecords.lastIndex] = lastRecord.copy(
+                    trafficDensity = endDensity,
+                    trafficAverageSpeedKmh = endAvgSpeed,
+                    speedLimitKmh = endLimit,
+                    dgtEventType = "FIN"
+                )
+            }
+            // ------------------------------------------------
 
             val batch = TelemetryBatch(
                 generatedAt = System.currentTimeMillis(),
