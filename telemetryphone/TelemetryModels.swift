@@ -19,6 +19,7 @@ struct Telemetry: Codable {
     let device: DeviceInfo
     let location: LocationInfo?
     let sensors: SensorsInfo?
+    let traffic: TrafficInfo?
 }
 
 struct DeviceInfo: Codable {
@@ -43,4 +44,22 @@ struct LocationInfo: Codable {
     let accuracyMeters: Double?
     let altitudeMeters: Double?
     let speedMps: Double?
+}
+
+struct TrafficInfo: Codable {
+    /// Velocidad actual en la vía (km/h)
+    let roadSpeedKmh: Double
+    /// Velocidad libre esperada en la vía sin tráfico (km/h)
+    let freeFlowSpeedKmh: Double
+    /// Estado de congestión ("congestionado" o "fluido")
+    let congestionStatus: String
+}
+
+struct TomTomFlowResponse: Decodable {
+    let flowSegmentData: FlowSegmentData
+    
+    struct FlowSegmentData: Decodable {
+        let currentSpeed: Double
+        let freeFlowSpeed: Double
+    }
 }

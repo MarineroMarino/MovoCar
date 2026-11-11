@@ -1,3 +1,11 @@
+//
+//  StartPopupView.swift
+//  telemetryphone
+//
+//  Created by Marino Vargas Zapata on 15/10/2026.
+//
+import SwiftUI
+
 struct StartPopupView: View {
     let onDismiss: () -> Void
     
@@ -6,11 +14,11 @@ struct StartPopupView: View {
             
             // --- IMAGEN ---
             // Opción A: Usando un icono del sistema de Apple (SF Symbols)
-            Image(systemName: "car.sensor.tag.radiowaves.left.and.right.fill")
+            Image(systemName: "exclamationmark.triangle.fill")
                 .resizable()
                 .scaledToFit()
                 .frame(height: 90)
-                .foregroundColor(.blue)
+                .foregroundColor(.orange)
                 .padding(.top, 10)
             
             // Opción B: Si tienes tu propia imagen en la carpeta Assets.xcassets,
@@ -30,7 +38,7 @@ struct StartPopupView: View {
                 .multilineTextAlignment(.center)
             
             // --- TEXTO DESCRIPTIVO ---
-            Text("Coloca el teléfono en un soporte seguro y conduce con normalidad. Recuerda pulsar el botón STOP al finalizar tu trayecto.")
+            Text("Conduce con seguridad. No uses la app mientras conduces.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

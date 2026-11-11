@@ -1,10 +1,8 @@
 import Foundation
-import _MapKit_SwiftUI
 import CoreLocation
 import CoreMotion
 import UIKit
 internal import Combine
-import MapKit
 
 class TelemetryViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     
@@ -13,17 +11,20 @@ class TelemetryViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     private let upmPassword = "fpLiD-HFKL2-NiBtJ-NDpMc-fLPrx"
     private let webDavBaseUrl = "https://drive.upm.es/remote.php/dav/files/simca.insia"
     
+    // --- CONFIGURACIÓN TOMTOM TRAFFIC API ---
+    private let tomTomApiKey = "4ge1Vx2TdXJv1blwityGdCRZjnRFgXFz"
+    
+    private static let recordsCountKey = "trayectos_registrados_count"
+    
     // Identificador de sesión (PIN de 4 dígitos)
     @Published var pin: String = ""
     @Published var isCollecting = false
     @Published var statusText: String = "Listos para comenzar"
-    
-    @Published var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
+    @Published var completionMessage: String = ""
     
     private var collectedRecords: [Telemetry] = []
     private var collectionTask: Task<Void, Never>?
-    
-    
+    private var trafficTask: Task<Void, Never>?
     
     // Managers de iOS
     private let locationManager = CLLocationManager()
@@ -33,6 +34,7 @@ class TelemetryViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     // Variables para almacenar los últimos datos leídos
     private var currentLocation: CLLocation?
     private var currentPressure: Double? // en kPa
+    private var currentTraffic: TrafficInfo?
     
     override init() {
         super.init()
@@ -54,7 +56,6 @@ class TelemetryViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     private func startCollectionIfValid() {
         // Comprobamos que sea un PIN numérico válido
         guard isValidPin(pin) else {
-            
             return
         }
         
@@ -76,10 +77,31 @@ class TelemetryViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         }
         
         collectedRecords.removeAll()
+        currentTraffic = nil
         isCollecting = true
         statusText = ""
+        completionMessage = ""
         
-        // Bucle de recolección (100ms)
+        // Bucle de consulta a TomTom cada 10 segundos
+        trafficTask = Task {
+            while !Task.isCancelled {
+                if let loc = currentLocation {
+                    if let trafficInfo = await fetchTomTomTraffic(
+                        latitude: loc.coordinate.latitude,
+                        longitude: loc.coordinate.longitude
+                    ) {
+                        currentTraffic = trafficInfo
+                    }
+                    // Esperar 10 segundos (10_000_000_000 nanosegundos)
+                    try? await Task.sleep(nanoseconds: 10_000_000_000)
+                } else {
+                    // Si aún no hay ubicación disponible, reintentar en 500ms
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                }
+            }
+        }
+        
+        // Bucle de recolección (200ms)
         collectionTask = Task {
             while !Task.isCancelled {
                 let record = collectSnapshot(sessionId: pin)
@@ -88,7 +110,7 @@ class TelemetryViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
                 await MainActor.run {
                 }
                 
-                // Esperar 100ms (100_000_000 nanosegundos)
+                // Esperar 200ms (200_000_000 nanosegundos)
                 try? await Task.sleep(nanoseconds: 200_000_000)
             }
         }
@@ -97,6 +119,7 @@ class TelemetryViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     private func stopCollectionAndUpload() {
         isCollecting = false
         collectionTask?.cancel()
+        trafficTask?.cancel()
         
         // Detener sensores
         locationManager.stopUpdatingLocation()
@@ -105,12 +128,15 @@ class TelemetryViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         motionManager.stopMagnetometerUpdates()
         altimeter.stopRelativeAltitudeUpdates()
         
+        let nuevoConteo = UserDefaults.standard.integer(forKey: Self.recordsCountKey) + 1
+        UserDefaults.standard.set(nuevoConteo, forKey: Self.recordsCountKey)
+        let mensaje = Self.generarMensajeAleatorio(paraConteo: nuevoConteo)
+        statusText = mensaje
+        completionMessage = mensaje
+        
         guard !collectedRecords.isEmpty else {
-            
             return
         }
-        
-        
         
         let batch = TelemetryBatch(
             generatedAt: Int64(Date().timeIntervalSince1970 * 1000),
@@ -120,20 +146,63 @@ class TelemetryViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         
         Task {
             if let fileUrl = saveBatchCsv(batch: batch, sessionId: pin) {
-                
                 let success = await uploadFileToUPMDrive(fileUrl: fileUrl)
                 
                 await MainActor.run {
                     if success {
-                        
                         try? FileManager.default.removeItem(at: fileUrl)
                         Task { await uploadPendingFiles() }
-                    } else {
-                        
                     }
                 }
             }
             collectedRecords.removeAll()
+        }
+    }
+    
+    static func generarMensajeAleatorio(paraConteo n: Int) -> String {
+        let mensajes = [
+            "¡Trayecto guardado! Ya llevas \(n) registros. ¡Gracias por seguir participando!",
+            "¡Muy bien! \(n) trayectos registrados. Cada uno nos ayuda mucho.",
+            "\(n) registros y sumando. ¡Sigue así!"
+        ]
+        return mensajes.randomElement() ?? mensajes[0]
+    }
+    
+    // MARK: - Consulta API TomTom Traffic
+    private func fetchTomTomTraffic(latitude: Double, longitude: Double) async -> TrafficInfo? {
+        guard !tomTomApiKey.isEmpty, tomTomApiKey != "TU_API_KEY_AQUI" else {
+            return nil
+        }
+        
+        let urlString = "https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?point=\(latitude),\(longitude)&unit=KMPH&key=\(tomTomApiKey)"
+        guard let url = URL(string: urlString) else { return nil }
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode) else {
+                return nil
+            }
+            
+            let decoded = try JSONDecoder().decode(TomTomFlowResponse.self, from: data)
+            let currentSpeed = decoded.flowSegmentData.currentSpeed
+            let freeFlowSpeed = decoded.flowSegmentData.freeFlowSpeed
+            
+            let congestionStatus: String
+            if freeFlowSpeed > 0 && currentSpeed < (freeFlowSpeed * 0.7) {
+                congestionStatus = "congestionado"
+            } else {
+                congestionStatus = "fluido"
+            }
+            
+            return TrafficInfo(
+                roadSpeedKmh: currentSpeed,
+                freeFlowSpeedKmh: freeFlowSpeed,
+                congestionStatus: congestionStatus
+            )
+        } catch {
+            print("Error consultando TomTom Traffic API: \(error)")
+            return nil
         }
     }
     
@@ -177,7 +246,8 @@ class TelemetryViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
             timestamp: Int64(Date().timeIntervalSince1970 * 1000),
             device: device,
             location: locInfo,
-            sensors: SensorsInfo(readings: readings)
+            sensors: SensorsInfo(readings: readings),
+            traffic: currentTraffic
         )
     }
     
@@ -209,14 +279,18 @@ class TelemetryViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     
     private func convertirJsonACsv(jsonData: Data) throws -> String {
         guard let jsonArray = try JSONSerialization.jsonObject(with: jsonData, options: []) as? [[String: Any]],
-              let primerObjeto = jsonArray.first else {
+              !jsonArray.isEmpty else {
             return ""
         }
         
         var csvBuilder = ""
         
-        // Cabeceras
-        let cabeceras = Array(primerObjeto.keys).sorted()
+        // Cabeceras: unimos todas las claves presentes más las columnas esperadas para que nunca falten
+        var allKeys = Set<String>(["device", "location", "sensors", "sessionId", "timestamp", "traffic"])
+        for obj in jsonArray {
+            allKeys.formUnion(obj.keys)
+        }
+        let cabeceras = Array(allKeys).sorted()
         csvBuilder.append(cabeceras.joined(separator: ",") + "\n")
         
         // Fila por fila
