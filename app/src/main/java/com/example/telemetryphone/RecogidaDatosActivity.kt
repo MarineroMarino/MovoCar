@@ -447,7 +447,7 @@ class RecogidaDatosActivity : AppCompatActivity() {
                                 if (currentSpeed != -1.0) {
                                     avgSpeed = currentSpeed.toString()
                                     // Calculamos densidad en base a la velocidad actual frente a la velocidad de vía libre
-                                    density = if (currentSpeed < (freeFlowSpeed * 0.75)) "Congestionado" else "Fluido"
+                                    density = if (currentSpeed < (freeFlowSpeed * 0.70)) "Congestionado" else "Fluido"
                                 }
                             }
                         }
