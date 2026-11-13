@@ -1,13 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    xmlns:tools="http://schemas.android.com/tools"
     tools:context=".WebViewFormActivity">
     <WebView
         android:id="@+id/webview_form"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnContacto"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:text="Contacto"
+        android:textColor="#2B75E2"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        app:backgroundTint="#FFFFFF"
+        app:cornerRadius="16dp"
+        app:elevation="6dp"
+        app:icon="@android:drawable/ic_dialog_email"
+        app:iconTint="#2B75E2"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

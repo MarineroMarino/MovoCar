@@ -94,6 +94,7 @@ class TelemetryActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_telemetry_phone)
+        configurarBotonContacto()
         val pinRecibido = intent.getStringExtra("EXTRA_PIN")
         val sharedPref = getSharedPreferences("PreferenciasTelemetria", Context.MODE_PRIVATE)
 

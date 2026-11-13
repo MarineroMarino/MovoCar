@@ -105,8 +105,13 @@ class RecogidaDatosActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_recogida_datos)
+        configurarBotonContacto()
         val pinRecibido = intent.getStringExtra("EXTRA_PIN")
         intent.putExtra("EXTRA_PIN", pinRecibido)
+
+        if (savedInstanceState == null) {
+            mostrarAvisoSeguridad()
+        }
 
         btnTelemetry = findViewById(R.id.btnStop)
         iniciarAnimacionRespiracion(btnTelemetry)
@@ -121,12 +126,48 @@ class RecogidaDatosActivity : AppCompatActivity() {
         btnTelemetry.setOnClickListener {
             detenerAnimacionRespiracion(btnTelemetry)
             stopCollectionAndUpload()
-            mostrarPopupAudio()
-
-
+            mostrarMensajeFinRecogida {
+                mostrarPopupAudio()
+            }
         }
 
 
+    }
+
+    private fun mostrarMensajeFinRecogida(onDismiss: () -> Unit) {
+        val pin = intent.getStringExtra("EXTRA_PIN") ?: "default"
+        val sharedPref = getSharedPreferences("PreferenciasTelemetria", MODE_PRIVATE)
+        val key = "num_registros_$pin"
+        val n = sharedPref.getInt(key, 0) + 1
+        sharedPref.edit().putInt(key, n).apply()
+
+        val mensajes = listOf(
+            "¡Trayecto guardado! Ya llevas $n registros. ¡Gracias por seguir participando!",
+            "¡Muy bien! $n trayectos registrados. Cada uno nos ayuda mucho.",
+            "$n registros y sumando. ¡Sigue así!"
+        )
+        val mensajeAleatorio = mensajes.random()
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setMessage(mensajeAleatorio)
+            .setPositiveButton("Continuar") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setOnDismissListener {
+                onDismiss()
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun mostrarAvisoSeguridad() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setMessage("Conduce con seguridad. No uses la app mientras conduces.")
+            .setPositiveButton("Continuar") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+            .show()
     }
     private fun mostrarPopupAudio() {
         // 1. Instanciar el BottomSheetDialog

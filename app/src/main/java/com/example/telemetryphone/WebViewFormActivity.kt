@@ -13,6 +13,7 @@ class WebViewFormActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_webview_form)
+        configurarBotonContacto()
 
         val myWebView = findViewById<WebView>(R.id.webview_form)
         myWebView.settings.javaScriptEnabled = true

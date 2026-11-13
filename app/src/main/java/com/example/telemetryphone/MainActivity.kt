@@ -2,10 +2,13 @@ package com.example.telemetryphone
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.KeyEvent
 import android.widget.EditText
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 
@@ -14,6 +17,11 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        configurarBotonContacto()
+
+        if (savedInstanceState == null) {
+            mostrarAvisoSeguridad()
+        }
 
         // Dentro de tu onCreate() en la Activity principal:
 
@@ -44,6 +52,30 @@ class MainActivity : AppCompatActivity() {
 
 
 
+    }
+
+    private fun mostrarAvisoSeguridad() {
+        val handler = Handler(Looper.getMainLooper())
+        val dialog = AlertDialog.Builder(this)
+            .setMessage("No utilices la aplicación mientras conduces. Inicia la grabación antes de comenzar la marcha, con el vehículo detenido")
+            .setPositiveButton("Continuar") { d, _ ->
+                d.dismiss()
+            }
+            .setCancelable(true)
+            .create()
+
+        val autoCloseRunnable = Runnable {
+            if (!isFinishing && !isDestroyed && dialog.isShowing) {
+                dialog.dismiss()
+            }
+        }
+
+        dialog.setOnDismissListener {
+            handler.removeCallbacks(autoCloseRunnable)
+        }
+
+        dialog.show()
+        handler.postDelayed(autoCloseRunnable, 5000)
     }
 
     private fun irALaSiguienteActivity(pin: String) {
