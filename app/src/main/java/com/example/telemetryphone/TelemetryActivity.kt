@@ -19,7 +19,10 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Patterns
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -61,17 +64,30 @@ class TelemetryActivity : AppCompatActivity() {
 
     private lateinit var btnPlay: FloatingActionButton
 
+    private var encuestaCompletada = false
+    private var checksMarcados = booleanArrayOf(false, false, false, false)
+
+    private fun actualizarEstadoPlay() {
+        val todosMarcados = checksMarcados.all { it }
+        if (encuestaCompletada && todosMarcados) {
+            btnPlay.isEnabled = true
+            btnPlay.alpha = 1.0f
+        } else {
+            btnPlay.isEnabled = false
+            btnPlay.alpha = 0.5f
+        }
+    }
 
     private val abrirEncuestaLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         // Este bloque se ejecuta cuando la WebView Activity se cierra
         if (result.resultCode == Activity.RESULT_OK) {
-            // ¡El formulario se envió! Habilitamos el botón Play
+            // ¡El formulario se envió! Habilitamos el botón Play si también se marcaron los checks
+            encuestaCompletada = true
             btnEncuesta.isEnabled = false
             btnEncuesta.alpha = 0.5f
-            btnPlay.isEnabled = true
-            btnPlay.alpha = 1.0f // Le devolvemos la opacidad total para que se vea activo
+            actualizarEstadoPlay()
         }
     }
 
@@ -83,23 +99,22 @@ class TelemetryActivity : AppCompatActivity() {
 
         // 2. Extraer el valor (si no existe aún, devolverá 'false' por defecto)
         val yaCompletada = sharedPref.getString("encuesta_completada_num", "false")
+        val checksYaAceptados = sharedPref.getString("instrucciones_aceptadas_num", "false")
 
         btnTelemetry = findViewById(R.id.btnInstrucciones)
         btnEncuesta = findViewById(R.id.btnEncuesta)
         btnPlay = findViewById(R.id.btnPlay)
-        if(yaCompletada?.contains(pinRecibido.toString()) ?: false){
-            btnPlay.isEnabled = true
-            btnPlay.alpha = 1.0f // Le devolvemos la opacidad total para que se vea activo
-            btnEncuesta.isEnabled = false
-            btnEncuesta.alpha = 0.5f
-        } else {
-            btnPlay.isEnabled = false
-            btnPlay.alpha = 0.5f
+
+        encuestaCompletada = yaCompletada?.contains(pinRecibido.toString()) == true
+        if (checksYaAceptados?.contains(pinRecibido.toString()) == true) {
+            checksMarcados.fill(true)
         }
 
-
-
-
+        if (encuestaCompletada) {
+            btnEncuesta.isEnabled = false
+            btnEncuesta.alpha = 0.5f
+        }
+        actualizarEstadoPlay()
 
         btnEncuesta.setOnClickListener {
             val intent = Intent(this, WebViewFormActivity::class.java)
@@ -113,31 +128,91 @@ class TelemetryActivity : AppCompatActivity() {
         }
 
         btnTelemetry.setOnClickListener {
-            val builder: AlertDialog.Builder = AlertDialog.Builder(this)
-            builder
-                .setMessage("Tu participación es voluntaria, 100% anónima y sólo se usarán datos técnicos del vehículo para fines de investigación.\n" +
+            val padding = (24 * resources.displayMetrics.density).toInt()
+            val spacing = (12 * resources.displayMetrics.density).toInt()
+
+            val scrollView = ScrollView(this)
+            val container = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(padding, spacing, padding, spacing)
+            }
+
+            val tvMensaje = TextView(this).apply {
+                text = "Bienvenido/a al experimento.\n" +
+                        "Esta investigación tiene como objetivo estudiar los distintos estilos de conducción para poder mejorar tecnologías emergentes en conducción automatizada. Para ello, tu tarea consistirá en contestar a un cuestionario sobre estilos de conducción (aproximadamente 15 minutos) y, una vez finalizado, en al menos dos o tres ocasiones en las que vayas a conducir, acceder a esta APP y pulsar el botón de START.\n" +
                         "\n" +
-                        "Para colaborar, sigue estos pasos:\n" +
+                        "Inicia la grabación con el vehículo detenido y no uses el móvil mientras conduces, la aplicación funciona en segundo plano y no es necesario tocarla.\n" +
                         "\n" +
-                        "    Contesta el cuestionario inicial sobre estilos de conducción.\n" +
+                        "Con ello, registraremos datos técnicos del vehículo mientras conduces (magnetómetro, giroscopio, acelerómetro y la posición en latitud, longitud y altitud). \n" +
                         "\n" +
-                        "    En tus próximos 2 o 3 viajes, abre esta app antes de arrancar y pulsa el botón verde de START. Conduce como lo haces habitualmente.\n" +
+                        "Trata de contestar a la encuesta y de conducir de la manera más natural posible. \n" +
+                        "Cuando finalices los trayectos, tan solo recuerda parar la grabación pulsando el botón de STOP.\n" +
                         "\n" +
-                        "    Al llegar a tu destino, pulsa el botón azul de STOP para finalizar la grabación.\n" +
+                        "Justo después, tendrás la opción, si quieres de dejarnos cualquier comentario sobre algún aspecto que desees añadir acerca del recorrido, pulsando sobre un botón con el micrófono.\n" +
                         "\n" +
-                        "    (Opcional) Si quieres contarnos algo sobre el viaje, pulsa el botón del micrófono y déjanos un comentario de voz.\n" +
+                        "Recuerda que los datos son absolutamente confidenciales y serán tratados exclusivamente de manera global junto con las respuestas de otros conductores con fines de investigación. En ningún caso se publicarán tus resultados individuales ni ningún tipo de información que pudiera identificarte siguiendo la ley de protección de datos (RGPD – Reglamento UE 2016/679). No registraremos ni tu nombre, ni tu DNI, ni la matrícula de tu vehículo, ni tu correo electrónico; tan solo usamos los 4 últimos dígitos de tu móvil para enlazar tu respuesta en la encuesta con los datos de conducción.\n" +
                         "\n" +
+                        "La participación en este estudio es estrictamente voluntaria y puedes retirarte en cualquier momento. Al finalizar el estudio, el equipo se compromete a explicar los resultados a todos los participantes que estén interesados en conocerlos. Para ello, tan solo hará falta que nos lo indiques a través del botón de contacto de la aplicación. \n" +
                         "\n" +
-                        "Al pulsar \"Continuar\", confirmas que aceptas participar. ¡Muchas gracias por tu ayuda!")
-                .setTitle("¡Te damos la bienvenida al estudio!")
-                .setPositiveButton("Continuar") { dialog, which ->
-                    // Do something.
-                    dialog.dismiss()
+                        "Esta investigación forma parte del proyecto SEGVAUTO 5Gen. Innovando para la movilidad del futuro (TEC-2024/ECO-277), dentro de Ayudas destinadas a la realización de programas de actividades de I+D entre Grupos de Investigación de la Comunidad de Madrid en Tecnologías.\n" +
+                        "\n" +
+                        "Confirma lo siguiente y pulsa el botón de continuar.\n"
+                textSize = 16f
+            }
+            container.addView(tvMensaje)
+
+            val opcionesCheck = listOf(
+                "Soy mayor de edad y tengo permiso de conducir en vigor.",
+                "He recibido suficiente información sobre el estudio.",
+                "Comprendo que mi participación es voluntaria.",
+                "Comprendo que puedo retirarme del estudio cuando desee."
+            )
+
+            opcionesCheck.forEachIndexed { index, texto ->
+                CheckBox(this).apply {
+                    text = texto
+                    isChecked = checksMarcados[index]
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        topMargin = spacing / 2
+                    }
+                    setOnCheckedChangeListener { _, isChecked ->
+                        checksMarcados[index] = isChecked
+                        if (checksMarcados.all { it }) {
+                            sharedPref.edit()
+                                .putString("instrucciones_aceptadas_num", pinRecibido.toString())
+                                .apply()
+                        } else {
+                            sharedPref.edit()
+                                .remove("instrucciones_aceptadas_num")
+                                .apply()
+                        }
+                        actualizarEstadoPlay()
+                    }
+                    container.addView(this)
                 }
+            }
 
-            val dialog: AlertDialog = builder.create()
+            val tvConfirmacion = TextView(this).apply {
+                text = "\nAl pulsar \"Continuar\", confirmas que aceptas participar. ¡Muchas gracias por tu ayuda!"
+                textSize = 16f
+            }
+            container.addView(tvConfirmacion)
+
+            scrollView.addView(container)
+
+            val dialog = AlertDialog.Builder(this)
+                .setTitle("¡Te damos la bienvenida al estudio!")
+                .setView(scrollView)
+                .setPositiveButton("Continuar") { d, _ ->
+                    actualizarEstadoPlay()
+                    d.dismiss()
+                }
+                .create()
+
             dialog.show()
-
         }
     }
 
